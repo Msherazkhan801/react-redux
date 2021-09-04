@@ -14219,6 +14219,7 @@ __metadata:
     rollup-plugin-terser: ^7.0.2
     ts-jest: 26.5.6
     typescript: ^4.3.4
+    use-sync-external-store: experimental
   peerDependencies:
     react: ^16.8.3 || ^17
   peerDependenciesMeta:
@@ -17164,6 +17165,15 @@ __metadata:
   peerDependencies:
     react: ^16.8.0 || ^17.0.0
   checksum: 3abcef55244fc12ba02f8a2a35e1d53984f9bc40d205713245b61defc1d84015b310d6d684d0fe3555c6b4a892aecc585e7c90bad4031d543bc77fe31284ee71
+  languageName: node
+  linkType: hard
+
+"use-sync-external-store@npm:experimental":
+  version: 0.0.0-experimental-1314299c7-20210901
+  resolution: "use-sync-external-store@npm:0.0.0-experimental-1314299c7-20210901"
+  peerDependencies:
+    react: 0.0.0-experimental-1314299c7-20210901
+  checksum: d0f8a4df38467d5a6b68dc16cf64bf0c83416d56eb194beb696fb370495c6aad15b373cd197d5e836b5b90416a6e0df255b5ce2281a37362c43216d8c8ad2468
   languageName: node
   linkType: hard
 
