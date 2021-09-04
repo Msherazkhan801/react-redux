@@ -1,4 +1,14 @@
-import { useReducer, useRef, useMemo, useContext, useDebugValue } from 'react'
+import {
+  useReducer,
+  useRef,
+  useMemo,
+  useContext,
+  useDebugValue,
+  useCallback,
+} from 'react'
+
+import { useSyncExternalStoreExtra } from 'use-sync-external-store/extra'
+
 import { useReduxContext as useDefaultReduxContext } from './useReduxContext'
 import { createSubscription, Subscription } from '../utils/Subscription'
 import { useIsomorphicLayoutEffect } from '../utils/useIsomorphicLayoutEffect'
@@ -16,7 +26,67 @@ function useSelectorWithStoreAndSubscription<TStoreState, TSelectedState>(
   store: Store<TStoreState, AnyAction>,
   contextSub: Subscription
 ): TSelectedState {
-  const [, forceRender] = useReducer((s) => s + 1, 0)
+  const latestSubscriptionCallbackError = useRef<Error>()
+
+  const subscribe = useMemo(() => {
+    const subscription = createSubscription(store, contextSub)
+    const subscribe = (reactListener: () => void) => {
+      // React provides its own subscription handler - trigger that on dispatch
+      subscription.onStateChange = reactListener
+      subscription.trySubscribe()
+
+      return () => subscription.tryUnsubscribe()
+    }
+
+    return subscribe
+  }, [store, contextSub])
+
+  // TODO This is necessary if we want to retain the current ability to capture info from dispatch errors.
+  // `uSES` swallows errors when checking for updates - the workaround is to wrap the original selector,
+  // save any errors to a ref, and then do the original "rethrow if error caught while rendering" logic.
+  const wrappedSelector = useMemo(() => {
+    const wrappedSelector: typeof selector = (arg) => {
+      try {
+        return selector(arg)
+      } catch (err) {
+        if (latestSubscriptionCallbackError.current == undefined) {
+          latestSubscriptionCallbackError.current = err
+        }
+
+        throw err
+      }
+    }
+
+    return wrappedSelector
+  }, [selector])
+
+  let res: TSelectedState
+
+  try {
+    res = useSyncExternalStoreExtra(
+      subscribe,
+      store.getState,
+      wrappedSelector,
+      equalityFn
+    )
+  } catch (err) {
+    if (latestSubscriptionCallbackError.current) {
+      ;(
+        err as Error
+      ).message += `\nThe error may be correlated with this previous error:\n${latestSubscriptionCallbackError.current.stack}\n\n`
+    }
+
+    throw err
+  }
+
+  useIsomorphicLayoutEffect(() => {
+    latestSubscriptionCallbackError.current = undefined
+  })
+
+  return res
+
+  /*
+    const [, forceRender] = useReducer((s) => s + 1, 0)
 
   const subscription = useMemo(
     () => createSubscription(store, contextSub),
@@ -104,6 +174,7 @@ function useSelectorWithStoreAndSubscription<TStoreState, TSelectedState>(
   }, [store, subscription])
 
   return selectedState!
+  */
 }
 
 /**
