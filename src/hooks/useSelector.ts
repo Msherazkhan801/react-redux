@@ -1,11 +1,4 @@
-import {
-  useReducer,
-  useRef,
-  useMemo,
-  useContext,
-  useDebugValue,
-  useCallback,
-} from 'react'
+import { useRef, useMemo, useContext, useDebugValue } from 'react'
 
 import { useSyncExternalStoreExtra } from 'use-sync-external-store/extra'
 
@@ -26,8 +19,6 @@ function useSelectorWithStoreAndSubscription<TStoreState, TSelectedState>(
   store: Store<TStoreState, AnyAction>,
   contextSub: Subscription
 ): TSelectedState {
-  const latestSubscriptionCallbackError = useRef<Error>()
-
   const subscribe = useMemo(() => {
     const subscription = createSubscription(store, contextSub)
     const subscribe = (reactListener: () => void) => {
@@ -45,140 +36,12 @@ function useSelectorWithStoreAndSubscription<TStoreState, TSelectedState>(
     return subscribe
   }, [store, contextSub])
 
-  // TODO This is necessary if we want to retain the current ability to capture info from dispatch errors.
-  // `uSES` swallows errors when checking for updates - the workaround is to wrap the original selector,
-  // save any errors to a ref, and then do the original "rethrow if error caught while rendering" logic.
-  const wrappedSelector = useMemo(() => {
-    const wrappedSelector: typeof selector = (arg) => {
-      try {
-        return selector(arg)
-      } catch (err) {
-        if (latestSubscriptionCallbackError.current == undefined) {
-          latestSubscriptionCallbackError.current = err
-        }
-
-        throw err
-      }
-    }
-
-    return wrappedSelector
-  }, [selector])
-
-  let res: TSelectedState
-
-  try {
-    res = useSyncExternalStoreExtra(
-      subscribe,
-      store.getState,
-      wrappedSelector,
-      equalityFn
-    )
-  } catch (err) {
-    if (latestSubscriptionCallbackError.current) {
-      ;(
-        err as Error
-      ).message += `\nThe error may be correlated with this previous error:\n${latestSubscriptionCallbackError.current.stack}\n\n`
-    }
-
-    throw err
-  }
-
-  useIsomorphicLayoutEffect(() => {
-    latestSubscriptionCallbackError.current = undefined
-  })
-
-  return res
-
-  /*
-    const [, forceRender] = useReducer((s) => s + 1, 0)
-
-  const subscription = useMemo(
-    () => createSubscription(store, contextSub),
-    [store, contextSub]
+  return useSyncExternalStoreExtra(
+    subscribe,
+    store.getState,
+    selector,
+    equalityFn
   )
-
-  const latestSubscriptionCallbackError = useRef<Error>()
-  const latestSelector = useRef<TSelector<TStoreState, TSelectedState>>()
-  const latestStoreState = useRef<TStoreState>()
-  const latestSelectedState = useRef<TSelectedState>()
-
-  const storeState = store.getState()
-  let selectedState: TSelectedState | undefined
-
-  try {
-    if (
-      selector !== latestSelector.current ||
-      storeState !== latestStoreState.current ||
-      latestSubscriptionCallbackError.current
-    ) {
-      const newSelectedState = selector(storeState)
-      // ensure latest selected state is reused so that a custom equality function can result in identical references
-      if (
-        latestSelectedState.current === undefined ||
-        !equalityFn(newSelectedState, latestSelectedState.current)
-      ) {
-        selectedState = newSelectedState
-      } else {
-        selectedState = latestSelectedState.current
-      }
-    } else {
-      selectedState = latestSelectedState.current
-    }
-  } catch (err) {
-    if (latestSubscriptionCallbackError.current) {
-      ;(
-        err as Error
-      ).message += `\nThe error may be correlated with this previous error:\n${latestSubscriptionCallbackError.current.stack}\n\n`
-    }
-
-    throw err
-  }
-
-  useIsomorphicLayoutEffect(() => {
-    latestSelector.current = selector
-    latestStoreState.current = storeState
-    latestSelectedState.current = selectedState
-    latestSubscriptionCallbackError.current = undefined
-  })
-
-  useIsomorphicLayoutEffect(() => {
-    function checkForUpdates() {
-      try {
-        const newStoreState = store.getState()
-        // Avoid calling selector multiple times if the store's state has not changed
-        if (newStoreState === latestStoreState.current) {
-          return
-        }
-
-        const newSelectedState = latestSelector.current!(newStoreState)
-
-        if (equalityFn(newSelectedState, latestSelectedState.current)) {
-          return
-        }
-
-        latestSelectedState.current = newSelectedState
-        latestStoreState.current = newStoreState
-      } catch (err) {
-        // we ignore all errors here, since when the component
-        // is re-rendered, the selectors are called again, and
-        // will throw again, if neither props nor store state
-        // changed
-        latestSubscriptionCallbackError.current = err as Error
-      }
-
-      forceRender()
-    }
-
-    subscription.onStateChange = checkForUpdates
-    subscription.trySubscribe()
-
-    checkForUpdates()
-
-    return () => subscription.tryUnsubscribe()
-  }, [store, subscription])
-
-  return selectedState!
-  */
 }
 
 /**

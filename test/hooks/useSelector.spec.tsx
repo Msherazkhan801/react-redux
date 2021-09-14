@@ -475,7 +475,7 @@ describe('React', () => {
           spy.mockRestore()
         })
 
-        it('correlates the subscription callback error with a following error during rendering', () => {
+        it('Passes through errors thrown while rendering', () => {
           const spy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
           const Comp = () => {
@@ -507,7 +507,7 @@ describe('React', () => {
             act(() => {
               store.dispatch({ type: '' })
             })
-          }).toThrow(/may be correlated with/)
+          }).toThrow(/Panic!/)
 
           spy.mockRestore()
         })
@@ -619,7 +619,6 @@ describe('React', () => {
           })
 
           expect(renderedItems.length).toBe(2)
-          // TODO This is failing, and correctly so. `uSES` drops the memoized value if it gets a new selector.
           expect(renderedItems[0]).toBe(renderedItems[1])
         })
       })
